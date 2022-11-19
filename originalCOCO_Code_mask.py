@@ -1,5 +1,7 @@
 
 
+#SOURCE RLE https://github.com/cocodataset/cocoapi/issues/492#issuecomment-800828352
+
 ## SOURCE -- ORIGINAL COCOC CODE 
 ## https://raw.githubusercontent.com/cocodataset/cocoapi/master/PythonAPI/pycocotools/mask.py
 
