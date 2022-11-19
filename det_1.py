@@ -164,6 +164,18 @@ class get_rle():
             annotations.append(seg)
         return {'categories':cats, 'images':images,'annotations':annotations}
 
+    def read_train_csv(self):
+        """ 
+        ## run it on first three images for demonstration:
+        """
+        train_df = pd.read_csv('../input/sartorius-cell-instance-segmentation/train.csv')
+        all_ids = train_df.id.unique()
+        train_sample = train_df[train_df.id.isin(all_ids[:3])]
+        root = coco_structure(train_sample)
+
+        with open('annotations_sample.json', 'w', encoding='utf-8') as f:
+            json.dump(root, f, ensure_ascii=True, indent=4)
+
 
 if __name__ == "__main__":
     obj_init_pycoco = init_pycoco_tools()
