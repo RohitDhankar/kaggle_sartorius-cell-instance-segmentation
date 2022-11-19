@@ -12,6 +12,11 @@ import numpy as np
 from tqdm.notebook import tqdm
 import json, itertools
 
+from datetime import datetime
+
+dt_time_now = datetime.now()
+dt_time_save = dt_time_now.strftime("_%Y_%m_%d__%H_%M_")
+
 
 class init_pycoco_tools():
     def __init__(self):
@@ -142,9 +147,12 @@ class get_rle():
         Returns:
                 {'categories':cats, 'images':images,'annotations':annotations}
         """
+
         cat_ids = {name:id+1 for id, name in enumerate(train_df.cell_type.unique())}    
-        cats =[{'name':name, 'id':id} for name,id in cat_ids.items()]
+        cats =[{'name':name, 'id':id} for name,id in cat_ids.items()] 
+        #KEY_NAME == categories | KEY_VALUE == LIST == cats
         images = [{'id':id, 'width':row.width, 'height':row.height, 'file_name':f'train/{id}.png'} for id,row in train_df.groupby('id').agg('first').iterrows()]
+        ##KEY_NAME == images | KEY_VALUE == LIST == images
         annotations=[]
         for idx, row in tqdm(train_df.iterrows()):
             mk = self.rle_decode(row.annotation, (row.height, row.width))
@@ -164,20 +172,45 @@ class get_rle():
             annotations.append(seg)
         return {'categories':cats, 'images':images,'annotations':annotations}
 
-    def read_train_csv(self):
+    def read_train_csv(self,train_df_path,read_rows_count):
         """ 
-        ## run it on first three images for demonstration:
+        # run on first three images for demonstration
         """
-        train_df = pd.read_csv('../input/sartorius-cell-instance-segmentation/train.csv')
-        all_ids = train_df.id.unique()
-        train_sample = train_df[train_df.id.isin(all_ids[:3])]
-        root = coco_structure(train_sample)
+        ls_of_DF_chunks = []
+        
+        train_df = pd.read_csv(train_df_path)
+        print("--[INFO--read_train_csv]---Rows Count--train_df---",train_df.shape[0])
+        for csv_chunk in pd.read_csv(train_df_path,chunksize=read_rows_count,iterator=True, low_memory=False):
+            ls_of_DF_chunks.append(csv_chunk)
+            #break -- BREAK out of LOOP -- if getting only 1 CHUNK == csv_chunk
+        chunk_idx = 2 
+        train_df = ls_of_DF_chunks[chunk_idx]
+        print("-[INFO--read_train_csv]---len(ls_of_DF_chunks)--",len(ls_of_DF_chunks))
+        print("-[INFO--read_train_csv]---train_df.info----",train_df.info())
+        # Write a small sample CSV to see manually 
+        train_df.to_csv("./output_dir/csv_dir/"+"df_small_train_"+str(dt_time_save)+"_.csv",index=False)
 
-        with open('annotations_sample.json', 'w', encoding='utf-8') as f:
+        #
+
+        all_ids = train_df.id.unique()
+        print("-[INFO--read_train_csv]---all_ids.info----",type(all_ids))
+
+        train_sample = train_df[train_df.id.isin(all_ids[:3])]
+        root = self.coco_structure(train_sample)
+        print("--TYPE-root--",type(root))
+        print("---root--\n",root)
+
+        with open('./output_dir/json_dir/annos_sample'+str(dt_time_save)+'_.json', 'w', encoding='utf-8') as f:
             json.dump(root, f, ensure_ascii=True, indent=4)
 
 
 if __name__ == "__main__":
-    obj_init_pycoco = init_pycoco_tools()
-    obj_init_pycoco._load_display()
+    # TODO -- CHECK -- https://github.com/okotaku/dethub/blob/main/tools/dataset_converters/prepare_sartorius_cellseg.py
+    train_df_path = "./input_dir/img_dir/train.csv"
+    read_rows_count = 20
+    # obj_init_pycoco = init_pycoco_tools()
+    # obj_init_pycoco._load_display()
+    obj_get_rle = get_rle()
+    obj_get_rle.read_train_csv(train_df_path,read_rows_count)
+
 
