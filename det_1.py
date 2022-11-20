@@ -1,6 +1,9 @@
 
-## SOURCE -- Mostly from - KAGGLE 
-## KAGGLE Code URL -- https://www.kaggle.com/datasets/slawekbiel/sartorius-cell-instance-segmentation-coco
+# RUN -- conda activate env2_det2
+# RUN -- python det_1.py > term_log_2c.log
+
+# SOURCE -- TODO -- Check -- https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset
+# SOURCE -- Mostly from - KAGGLE - Code URL -- https://www.kaggle.com/datasets/slawekbiel/sartorius-cell-instance-segmentation-coco
 
 from pycocotools.coco import COCO
 import skimage.io as io
@@ -22,7 +25,7 @@ dt_time_save = dt_time_now.strftime("_%Y_%m_%d__%H_%M_")
 
 class init_pycoco_tools():
     def __init__(self):
-        self.img_data_dir_test=Path('./input_dir/img_dir/test/')
+        self.img_data_dir_test=Path('./input_dir/img_dir/')#test/')
         self.img_data_dir_train=Path('./input_dir/img_dir/')#train/')
         anno_json_File = Path('./input_dir/json_dir/annotations_val.json')
         self.coco_obj = COCO(anno_json_File)
@@ -129,56 +132,75 @@ class get_rle():
         print("--mask_rle-->  LENGTH -- ls_ends",len(ls_ends))
 
         img = np.zeros(shape[0]*shape[1], dtype=np.uint8)
-        cv2.imwrite("return_img_rle_aa.png",img)
+        # cv2.imwrite("return_img_rle_aa.png",img)
+        img_unique, img_counts = np.unique(img, return_counts=True)
+        print("  "*50)
+        print("--rle_decode-img_unique, img_counts-\n",img_unique, img_counts)
+        print("  "*50)
+        
 
         for lo, hi in zip(ls_starts, ls_ends):
             img[lo:hi] = 1
         return_img_rle = img.reshape(shape)
-        cv2.imwrite("return_img_rle_.png",return_img_rle)
+        # cv2.imwrite("return_img_rle_.png",return_img_rle)
+        return_img_rle_unique, return_img_rle_counts = np.unique(return_img_rle, return_counts=True)
+        print("  "*50)
+        print("--rle_decode---return_img_rle_unique, return_img_rle_counts--\n",return_img_rle_unique, return_img_rle_counts)
+        print("  "*50)
         print("--return_img_rle.ndim,return_img_rle.shape----\n",return_img_rle.ndim,return_img_rle.shape)
         print("--return_img_rle---\n",return_img_rle)
         print("  "*50)
-        print(" -- "*50)
-
+        print(" ---   "*50)
 
         return return_img_rle # Needed to align to RLE direction
 
         
     def binary_mask_to_rle(self , binary_mask):
         '''
-        #SOURCE -  https://newbedev.com/encode-numpy-array-using-uncompressed-rle-for-coco-dataset
+        # Original SOURCE -- SO CODE -- https://stackoverflow.com/questions/49494337/encode-numpy-array-using-uncompressed-rle-for-coco-dataset
+
+        #KAGGLE CODE Sited this SOURCE -  https://newbedev.com/encode-numpy-array-using-uncompressed-rle-for-coco-dataset
 
         Args:
-            mask_rle:  run-length as string formated (start length)
-            shape:     (height,width) of array to return 
+
         
         Returns: 
-            numpy array:    1 - mask, 0 - background
+            dict_rle = {'counts': [], 'size': list(binary_mask.shape)}
 
         '''
-        rle = {'counts': [], 'size': list(binary_mask.shape)}
-        counts = rle.get('counts')
-        for i, (value, elements) in enumerate(itertools.groupby(binary_mask.ravel(order='F'))):
-            if i == 0 and value == 1:
+        dict_rle = {'counts': [], 'size': list(binary_mask.shape)}
+        print("---dict_rle---aaa---",dict_rle)
+
+        counts = dict_rle.get('counts')
+
+        for iter_k, (value, elements) in enumerate(itertools.groupby(binary_mask.ravel(order='F'))):
+            ## order = 'F', the ravel function will flatten the elements out in column-first order.-- Fortran STYLE 
+            ## order = 'C', flatten the elements out in ROW-first order..-- C Lang STYLE 
+
+            #print("---dict_rle----iter_k-(value, elements)-",iter_k,(value, elements)) # elements #itertools._grouper object
+            #print("---dict_rle----iter_k-(value, len(list(elements))))---",iter_k,(value,len(list(elements)))) # len(list(elements))
+            print("---dict_rle----iter_k----",iter_k)
+            print("---dict_rle----value----",value)
+            print("---dict_rle----len(list(elements)))----",len(list(elements)))
+
+            if iter_k == 0 and value == 1:
                 counts.append(0)
             counts.append(len(list(elements)))
-        return rle
+        print("---dict_rle---bbb-",dict_rle)
+        return dict_rle
 
     def coco_structure(self , train_df):
         """
         Args:
+            Sample Pandas DF == train_df
 
         Returns:
-                {'categories':cats, 'images':images,'annotations':annotations}
+            DICT == root_dict == {'categories':cats, 'images':images,'annotations':annotations}
         """
 
         obj_init_pycoco = init_pycoco_tools()
         train_dir_path = obj_init_pycoco.img_data_dir_train
         print("--coco_structure-----train_dir_path---\n",train_dir_path)
-        lower_white = np.uint8([5, 5, 5]) # TODO -- best range
-        upper_white = np.uint8([255,11,255]) # TODO -- best range
-        
-
 
         cat_ids = {name:id+1 for id, name in enumerate(train_df.cell_type.unique())}    
         cats =[{'name':name, 'id':id} for name,id in cat_ids.items()] 
@@ -197,26 +219,40 @@ class get_rle():
             print("--return_img_rle-----mk---unique, counts--\n",unique, counts)
             print("  "*50)
             print(" -- "*50)
-            # cv2.imshow("Left", mk) # TODO - Ok with - PY 3.6 ? 
-            # cv2.waitKey(0)
+
+            
             for image_id,df_csv_row in train_df.groupby('id').agg('first').iterrows():
                 print("----IMAGE--ID---",image_id)
             train_img_file_path = str(train_dir_path) + "/" + "train/"+str(image_id)+".png"
             image_input = io.imread(train_img_file_path)
-            print("---image_input---CHANNELS---",image_input.shape)
-            #img_hsv = cv2.cvtColor(image_input,cv2.COLOR_BGR2HSV)
-            #img_gray = cv2.cvtColor(image_input,cv2.COLOR_BGR2GRAY)
-            #mask_white = cv2.inRange(image_input, lower_white, upper_white) ##
+            print("---image_input--SHAPE--",image_input.shape)
 
-            masked_image = cv2.bitwise_and(image_input,image_input,mask = mk) #mask_white)
+            masked_image = cv2.bitwise_and(image_input,image_input,mask = mk) 
             masked_image[mk==0] = [100]#, 255]#, 255] 
             masked_image[mk==1]= [20] #,:] = [0, 0]#, 1]
-            cv2.imwrite("test_masked_image_"+str(counts[1])+".png",masked_image)
+            #cv2.imwrite("test_masked_image_"+str(counts[1])+".png",masked_image)
 
+
+            # Get binary array - where  mask=mk is Black
+            cond = mk==0 
+            print("---TYPE(cond----",type(cond)) #<class 'numpy.ndarray'>
+            print("---cond.shape--",cond.shape)
+            unique_cond, counts_cond = np.unique(cond, return_counts=True)
+            #print("--coco_structure---cond = mk<50--unique_cond, counts--\n",unique_cond, counts_cond) #CONSTANT #[ True] [366080]
+            print("--coco_structure---cond = mk==0--unique_cond, counts--\n",unique_cond, counts_cond) 
+            #VARIABLE #[False  True] [    96 365984]
+            # Same values as above -- -return_img_rle-----mk---unique, counts-
+            print("  "*50)
   
             ys, xs = np.where(mk)
+            print("--coco_structure---ys, xs -",ys, xs)
+            print("  "*50)
+
             x1, x2 = min(xs), max(xs)
             y1, y2 = min(ys), max(ys)
+            print("--coco_structure---x1,x2,y1,y2---\n",x1,x2,y1,y2)
+            print("  "*50)
+
             enc = self.binary_mask_to_rle(mk)
             seg = {
                 'segmentation':enc, 
@@ -233,7 +269,6 @@ class get_rle():
         
         for key, val in root_dict.items():
             print("---root_dict--KEY, root_dict-val--TYPE---\n",key,type(val))
-
 
         return root_dict #{'categories':cats, 'images':images,'annotations':annotations}
 
